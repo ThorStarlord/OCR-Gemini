@@ -4,7 +4,7 @@ import os
 # Your Google Gemini API Key.
 # It's highly recommended to load this from an environment variable for security.
 # Example: GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GEMINI_API_KEY_HERE")  # Replace with your actual API key
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyD6ZJjkhA-XS_LtxcOFbsPdGNhbuuC6f7o")  # Replace with your actual API key
 
 # Gemini Model to use (e.g., 'gemini-pro-vision', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest')
 # 'gemini-1.5-flash-latest' is generally faster and cheaper for OCR.
