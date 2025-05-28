@@ -139,12 +139,27 @@ class GeminiMangaOCR:
         # Add language-specific instructions
         manga_language = getattr(config, 'MANGA_LANGUAGE', '')
         if manga_language == 'Japanese' and 'japanese' in prompts:
-            prompt = prompts['japanese']
+            if default_prompt == 'basic':  # Override basic with Japanese if language is set
+                prompt = prompts['japanese']
         
-        # Add reading order instructions
+        # Add reading order instructions based on configuration
         reading_order = getattr(config, 'READING_ORDER', '')
         if reading_order == 'right-to-left':
-            prompt += "\nNote: This is a manga page, please consider right-to-left reading order."
+            spatial_instructions = """
+
+CRITICAL SPATIAL INSTRUCTIONS FOR MANGA:
+- The page flows from RIGHT to LEFT, TOP to BOTTOM
+- Panel 1 is at the TOP-RIGHT corner
+- Panel 2 is to the LEFT of Panel 1
+- Continue LEFT across the top row
+- Drop down to the next row and start again from the RIGHT
+- Within each panel, speech bubbles follow RIGHT-TO-LEFT flow
+- Vertical text reads TOP-TO-BOTTOM
+- Pay attention to panel borders and speech bubble tails to determine reading sequence
+
+Please number and extract text in this precise order, indicating the spatial position of each text element."""
+            
+            prompt += spatial_instructions
         
         return prompt
         

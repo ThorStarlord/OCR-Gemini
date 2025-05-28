@@ -9,8 +9,8 @@ GOOGLE_API_KEY = "YOUR_API_KEY_HERE"  # Get from https://aistudio.google.com/
 
 # --- BASIC SETTINGS ---
 GEMINI_MODEL = 'gemini-1.5-flash-latest'  # Fast and cost-effective
-MANGA_LANGUAGE = 'Japanese'  # 'Japanese' or 'English'
-DEFAULT_PROMPT = 'japanese'  # 'basic', 'japanese', 'english', 'detailed'
+MANGA_LANGUAGE = 'English'  # 'Japanese' or 'English'
+DEFAULT_PROMPT = 'English'  # 'basic', 'japanese', 'english', 'detailed'
 
 # --- PROCESSING OPTIONS ---
 ENABLE_IMAGE_PREPROCESSING = True

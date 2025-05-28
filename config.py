@@ -58,25 +58,66 @@ CONTINUE_ON_ERROR = True  # Continue processing other images even if one fails
 # OCR Prompting
 OCR_PROMPTS = {
     'basic': 'Extract all readable text from this image.',
-    'japanese': '''This is a Japanese manga page. Extract all Japanese text accurately, including sound effects. 
-Please do not translate, just transcribe. Pay close attention to the reading order which is typically 
-right-to-left, top-to-bottom for panels, and then within bubbles/text blocks. If text is vertically 
-aligned, extract it from top to bottom. If there are multiple speech bubbles or text areas, process 
-them in the typical manga reading flow. Provide the text clearly separated for each distinct bubble 
-or text block.''',
+    'japanese': '''This is a Japanese manga page. Extract all Japanese text accurately, including sound effects and dialogue. 
+
+IMPORTANT READING ORDER: Follow the traditional Japanese manga reading pattern:
+1. Start from the TOP-RIGHT panel and move LEFT across the page
+2. Within each panel, read speech bubbles from RIGHT to LEFT, TOP to BOTTOM
+3. For vertical text, read from TOP to BOTTOM
+4. Move down to the next row of panels and repeat
+
+Please extract text in this exact reading order and clearly label each panel/bubble. Format like this:
+Panel 1 (top-right): [dialogue/text]
+Panel 2 (top-left): [dialogue/text]
+Panel 3 (middle-right): [dialogue/text]
+And so on...
+
+Include ALL text: dialogue, thoughts, sound effects, and narration.''',
+    
     'english': '''This is an English manga/comic page. Extract all English text accurately, including 
 sound effects and dialogue. Follow the typical left-to-right, top-to-bottom reading order for panels 
 and speech bubbles. Separate text from different bubbles or panels clearly.''',
+    
     'detailed': '''Extract all text from this image with high accuracy. Preserve the original formatting 
 and reading order. If this is a manga or comic, consider the typical reading flow. Include all text 
 types: dialogue, narration, sound effects, and any other visible text.''',
-    'structured': '''Extract text from this manga/comic page in a structured format:
-1. First list all dialogue in speech bubbles in reading order
-2. Then list all sound effects and onomatopoeia
-3. Finally list any narration or text boxes
-Label each section clearly.'''
+    
+    'structured': '''Extract text from this manga/comic page in a structured format following RIGHT-TO-LEFT, TOP-TO-BOTTOM reading order:
+
+1. PANELS: Number panels from top-right to bottom-left
+2. DIALOGUE: Extract speech bubbles in proper manga reading order (right-to-left within panels)
+3. SOUND EFFECTS: List all onomatopoeia and sound effects with their positions
+4. NARRATION: Any text boxes or narrative elements
+
+Format example:
+=== PANEL 1 (Top-Right) ===
+Dialogue: "Text here"
+Sound Effect: *CRASH*
+
+=== PANEL 2 (Top-Left) ===
+Dialogue: "Next text"
+
+Continue in proper manga reading order...''',
+
+    'manga_precise': '''You are reading a Japanese manga page. Extract ALL text following the traditional Japanese reading pattern:
+
+SPATIAL READING RULES:
+- Start at TOP-RIGHT corner of the page
+- Move LEFT across each row of panels  
+- Within each panel: read RIGHT-TO-LEFT, TOP-TO-BOTTOM
+- For speech bubbles: follow the flow from right to left
+- For vertical text: read from top to bottom
+- Include panel transitions and page flow
+
+OUTPUT FORMAT:
+Panel Position: [Description of location]
+Speaker/Type: [Character name or "Narration" or "Sound Effect"]
+Text: [Exact transcription]
+
+Be very precise about the reading order and spatial relationships.'''
 }
-DEFAULT_PROMPT = 'japanese'  # Choose which prompt to use ('basic', 'japanese', 'english', 'detailed', etc.)
+
+DEFAULT_PROMPT = 'manga_precise'  # Use the new precise manga prompt
 
 # Manga Specific Settings
 MANGA_LANGUAGE = 'Japanese'  # 'Japanese', 'English', etc. (Used by _get_ocr_prompt)
