@@ -57,7 +57,12 @@ CONTINUE_ON_ERROR = True  # Continue processing other images even if one fails
 
 # OCR Prompting
 OCR_PROMPTS = {
+    # BASIC PROMPT - Simple and fast
     'basic': 'Extract all readable text from this image.',
+    # Use this when: You want quick, simple text extraction without special formatting
+    # Best for: Simple images, testing, or when you don't need structured output
+    
+    # JAPANESE MANGA PROMPT - Optimized for traditional manga layout
     'japanese': '''This is a Japanese manga page. Extract all Japanese text accurately, including sound effects and dialogue. 
 
 IMPORTANT READING ORDER: Follow the traditional Japanese manga reading pattern:
@@ -73,15 +78,27 @@ Panel 3 (middle-right): [dialogue/text]
 And so on...
 
 Include ALL text: dialogue, thoughts, sound effects, and narration.''',
+    # Use this when: Processing traditional Japanese manga
+    # Best for: Right-to-left manga with complex panel layouts
+    # Features: Panel numbering, reading order guidance, includes sound effects
     
+    # ENGLISH COMIC PROMPT - Optimized for Western comics/manga
     'english': '''This is an English manga/comic page. Extract all English text accurately, including 
 sound effects and dialogue. Follow the typical left-to-right, top-to-bottom reading order for panels 
 and speech bubbles. Separate text from different bubbles or panels clearly.''',
+    # Use this when: Processing English comics, webtoons, or English-translated manga
+    # Best for: Left-to-right reading order, Western comic layouts
+    # Features: Left-to-right panel flow, clear bubble separation
     
+    # DETAILED PROMPT - Comprehensive extraction with formatting preservation
     'detailed': '''Extract all text from this image with high accuracy. Preserve the original formatting 
 and reading order. If this is a manga or comic, consider the typical reading flow. Include all text 
 types: dialogue, narration, sound effects, and any other visible text.''',
+    # Use this when: You need maximum text extraction with formatting
+    # Best for: Complex pages, mixed content, preserving layout information
+    # Features: Format preservation, comprehensive text types, adaptive to content
     
+    # STRUCTURED PROMPT - Organized output by content type
     'structured': '''Extract text from this manga/comic page in a structured format following RIGHT-TO-LEFT, TOP-TO-BOTTOM reading order:
 
 1. PANELS: Number panels from top-right to bottom-left
@@ -98,7 +115,11 @@ Sound Effect: *CRASH*
 Dialogue: "Next text"
 
 Continue in proper manga reading order...''',
+    # Use this when: You want organized output separated by content type
+    # Best for: Analysis, translation work, detailed study of manga structure
+    # Features: Content categorization, clear organization, position tracking
 
+    # MANGA PRECISE PROMPT - Most detailed spatial awareness (DEFAULT)
     'manga_precise': '''You are reading a Japanese manga page. Extract ALL text following the traditional Japanese reading pattern:
 
 SPATIAL READING RULES:
@@ -115,13 +136,30 @@ Speaker/Type: [Character name or "Narration" or "Sound Effect"]
 Text: [Exact transcription]
 
 Be very precise about the reading order and spatial relationships.'''
+    # Use this when: You need the most accurate manga reading order (RECOMMENDED)
+    # Best for: Professional manga processing, accurate text extraction
+    # Features: Precise spatial instructions, speaker identification, exact positioning
 }
 
-DEFAULT_PROMPT = 'manga_precise'  # Use the new precise manga prompt
+# CURRENT DEFAULT - Choose based on your manga type:
 
-# Manga Specific Settings
-MANGA_LANGUAGE = 'Japanese'  # 'Japanese', 'English', etc. (Used by _get_ocr_prompt)
-READING_ORDER = 'right-to-left'  # 'left-to-right' or 'right-to-left' (Used by _get_ocr_prompt)
+# FOR ORIGINAL JAPANESE MANGA (right-to-left reading):
+DEFAULT_PROMPT = 'detailed'  # ← RECOMMENDED for Japanese manga
+# Alternative: DEFAULT_PROMPT = 'structured'  # If you want organized output
+
+# FOR ENGLISH TRANSLATED MANGA (still right-to-left layout):
+# DEFAULT_PROMPT = 'detailed'  # ← RECOMMENDED for English translations
+# Alternative: DEFAULT_PROMPT = 'structured'  # If you want categorized output
+
+# Manga Specific Settings - UPDATE THESE BASED ON YOUR CONTENT:
+
+# For Original Japanese Manga:
+MANGA_LANGUAGE = 'English'
+READING_ORDER = 'right-to-left'
+
+# For English Translated Manga (uncomment these instead):
+# MANGA_LANGUAGE = 'English'
+# READING_ORDER = 'right-to-left'  # Keep this since layout is still right-to-left
 
 # Output Formatting
 SEPARATE_PAGES = True  # Add a separator between extracted text from different pages
