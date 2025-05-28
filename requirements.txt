@@ -1,0 +1,9 @@
+# Google Generative AI SDK for Gemini API
+google-generativeai>=0.8.0
+
+# Image processing
+Pillow>=10.0.0
+
+# For enhanced functionality (optional)
+pathlib2>=2.3.7; python_version < '3.4'
+```
