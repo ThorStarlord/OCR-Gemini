@@ -3,40 +3,109 @@ import time
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
-import google.generativeai as genai
+from typing import List, Optional, Dict, Any
+
+# Import with error handling for type checking
+try:
+    import google.generativeai as genai  # type: ignore[reportPrivateImportUsage]
+except ImportError as e:
+    print(f"Error importing google.generativeai: {e}")
+    print("Please install with: pip install google-generativeai")
+    exit(1)
+
 from PIL import Image, ImageEnhance
 import config
 
 class GeminiMangaOCR:
     def __init__(self):
         """Initialize the Gemini OCR system."""
+        self._validate_config()
         self.setup_logging()
         self.setup_gemini()
         self.processed_count = 0
         self.error_count = 0
         
-    def setup_logging(self):
+    def _validate_config(self) -> None:
+        """Validate required configuration settings."""
+        if not hasattr(config, 'GOOGLE_API_KEY') or not config.GOOGLE_API_KEY:
+            raise ValueError("GOOGLE_API_KEY not found. Please set it in config.py or as an environment variable.")
+        
+        required_attrs = ['GEMINI_MODEL', 'IMAGE_FOLDER', 'OUTPUT_FILE', 'SUPPORTED_EXTENSIONS']
+        for attr in required_attrs:
+            if not hasattr(config, attr):
+                raise ValueError(f"Required configuration '{attr}' not found in config.py")
+        
+    def setup_logging(self) -> None:
         """Setup logging configuration."""
+        handlers = []
+        
+        if getattr(config, 'SAVE_ERROR_LOG', False):
+            handlers.append(logging.FileHandler(config.ERROR_LOG_FILE))
+        
+        if getattr(config, 'VERBOSE_OUTPUT', True):
+            handlers.append(logging.StreamHandler())
+        
+        if not handlers:
+            handlers.append(logging.NullHandler())
+            
         logging.basicConfig(
-            level=logging.DEBUG if config.DEBUG_MODE else logging.INFO,
+            level=logging.DEBUG if getattr(config, 'DEBUG_MODE', False) else logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(config.ERROR_LOG_FILE) if config.SAVE_ERROR_LOG else logging.NullHandler(),
-                logging.StreamHandler() if config.VERBOSE_OUTPUT else logging.NullHandler()
-            ]
+            handlers=handlers
         )
         self.logger = logging.getLogger(__name__)
         
-    def setup_gemini(self):
+    def setup_gemini(self) -> None:
         """Setup Gemini API configuration."""
-        if not config.GOOGLE_API_KEY:
-            raise ValueError("GOOGLE_API_KEY not found. Please set it in config.py or as an environment variable.")
+        try:
+            # Use the configure function directly from genai module
+            genai.configure(api_key=config.GOOGLE_API_KEY)
+            self.model = genai.GenerativeModel(config.GEMINI_MODEL)
+            self.logger.info(f"Initialized Gemini model: {config.GEMINI_MODEL}")
+        except Exception as e:
+            raise ValueError(f"Failed to initialize Gemini API: {e}")
         
-        genai.configure(api_key=config.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel(config.GEMINI_MODEL)
-        self.logger.info(f"Initialized Gemini model: {config.GEMINI_MODEL}")
+    def _enhance_image(self, img: Image.Image) -> Image.Image:
+        """Apply image enhancements for better OCR results."""
+        if not getattr(config, 'ENABLE_IMAGE_PREPROCESSING', False):
+            return img
+            
+        # Enhance contrast
+        if getattr(config, 'ENHANCE_CONTRAST', False):
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(getattr(config, 'CONTRAST_FACTOR', 1.2))
         
+        # Enhance sharpness
+        if getattr(config, 'ENHANCE_SHARPNESS', False):
+            enhancer = ImageEnhance.Sharpness(img)
+            img = enhancer.enhance(getattr(config, 'SHARPNESS_FACTOR', 1.2))
+            
+        return img
+        
+    def _resize_image(self, img: Image.Image) -> Image.Image:
+        """Resize image if it exceeds maximum dimensions."""
+        max_size = getattr(config, 'MAX_IMAGE_SIZE', (2048, 2048))
+        
+        if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+            img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            self.logger.info(f"Resized image to {img.size}")
+            
+        return img
+        
+    def _save_debug_image(self, img: Image.Image, image_path: str) -> None:
+        """Save processed image for debugging purposes."""
+        if not getattr(config, 'SAVE_PROCESSED_IMAGES', False):
+            return
+            
+        try:
+            script_dir = getattr(config, 'SCRIPT_DIR', os.path.dirname(__file__))
+            processed_path = os.path.join(script_dir, f"processed_{os.path.basename(image_path)}")
+            quality = getattr(config, 'IMAGE_QUALITY', 95)
+            img.save(processed_path, quality=quality)
+            self.logger.debug(f"Saved processed image: {processed_path}")
+        except Exception as e:
+            self.logger.warning(f"Failed to save debug image: {e}")
+
     def preprocess_image(self, image_path: str) -> Optional[Image.Image]:
         """Preprocess image for better OCR results."""
         try:
@@ -47,32 +116,50 @@ class GeminiMangaOCR:
                 img = img.convert('RGB')
             
             # Resize if too large
-            if img.size[0] > config.MAX_IMAGE_SIZE[0] or img.size[1] > config.MAX_IMAGE_SIZE[1]:
-                img.thumbnail(config.MAX_IMAGE_SIZE, Image.Resampling.LANCZOS)
-                self.logger.info(f"Resized image to {img.size}")
+            img = self._resize_image(img)
             
-            if config.ENABLE_IMAGE_PREPROCESSING:
-                # Enhance contrast
-                if config.ENHANCE_CONTRAST:
-                    enhancer = ImageEnhance.Contrast(img)
-                    img = enhancer.enhance(config.CONTRAST_FACTOR)
-                
-                # Enhance sharpness
-                if config.ENHANCE_SHARPNESS:
-                    enhancer = ImageEnhance.Sharpness(img)
-                    img = enhancer.enhance(config.SHARPNESS_FACTOR)
+            # Apply enhancements
+            img = self._enhance_image(img)
             
             # Save processed image if debugging
-            if config.SAVE_PROCESSED_IMAGES:
-                processed_path = os.path.join(config.SCRIPT_DIR, f"processed_{os.path.basename(image_path)}")
-                img.save(processed_path, quality=config.IMAGE_QUALITY)
-                self.logger.debug(f"Saved processed image: {processed_path}")
+            self._save_debug_image(img, image_path)
             
             return img
             
         except Exception as e:
             self.logger.error(f"Error preprocessing image {image_path}: {e}")
             return None
+    
+    def _get_ocr_prompt(self) -> str:
+        """Get the appropriate OCR prompt based on configuration."""
+        prompts = getattr(config, 'OCR_PROMPTS', {})
+        default_prompt = getattr(config, 'DEFAULT_PROMPT', 'basic')
+        prompt = prompts.get(default_prompt, prompts.get('basic', 'Extract all text from this image.'))
+        
+        # Add language-specific instructions
+        manga_language = getattr(config, 'MANGA_LANGUAGE', '')
+        if manga_language == 'Japanese' and 'japanese' in prompts:
+            prompt = prompts['japanese']
+        
+        # Add reading order instructions
+        reading_order = getattr(config, 'READING_ORDER', '')
+        if reading_order == 'right-to-left':
+            prompt += "\nNote: This is a manga page, please consider right-to-left reading order."
+        
+        return prompt
+        
+    def _save_api_response(self, response_text: str, image_path: str) -> None:
+        """Save API response for debugging purposes."""
+        if not getattr(config, 'SAVE_API_RESPONSES', False):
+            return
+            
+        try:
+            script_dir = getattr(config, 'SCRIPT_DIR', os.path.dirname(__file__))
+            response_file = os.path.join(script_dir, f"response_{os.path.basename(image_path)}.txt")
+            with open(response_file, 'w', encoding='utf-8') as f:
+                f.write(response_text)
+        except Exception as e:
+            self.logger.warning(f"Failed to save API response: {e}")
     
     def extract_text_from_image(self, image_path: str) -> Optional[str]:
         """Extract text from a single image using Gemini."""
@@ -83,14 +170,7 @@ class GeminiMangaOCR:
                 return None
             
             # Get the appropriate prompt
-            prompt = config.OCR_PROMPTS.get(config.DEFAULT_PROMPT, config.OCR_PROMPTS['basic'])
-            
-            # Add language-specific instructions
-            if config.MANGA_LANGUAGE == 'Japanese':
-                prompt = config.OCR_PROMPTS.get('japanese', prompt)
-            
-            if config.READING_ORDER == 'right-to-left':
-                prompt += "\nNote: This is a manga page, please consider right-to-left reading order."
+            prompt = self._get_ocr_prompt()
             
             self.logger.info(f"Processing image: {os.path.basename(image_path)}")
             
@@ -98,17 +178,15 @@ class GeminiMangaOCR:
             response = self.model.generate_content([prompt, img])
             
             # Add delay to respect rate limits
-            time.sleep(config.REQUEST_DELAY)
+            delay = getattr(config, 'REQUEST_DELAY', 1.0)
+            time.sleep(delay)
             
             if response.text:
                 self.processed_count += 1
                 self.logger.info(f"Successfully extracted text from {os.path.basename(image_path)}")
                 
                 # Save API response if debugging
-                if config.SAVE_API_RESPONSES:
-                    response_file = os.path.join(config.SCRIPT_DIR, f"response_{os.path.basename(image_path)}.txt")
-                    with open(response_file, 'w', encoding='utf-8') as f:
-                        f.write(response.text)
+                self._save_api_response(response.text, image_path)
                 
                 return response.text
             else:
@@ -118,47 +196,80 @@ class GeminiMangaOCR:
         except Exception as e:
             self.error_count += 1
             self.logger.error(f"Error processing {image_path}: {e}")
-            if not config.CONTINUE_ON_ERROR:
+            
+            continue_on_error = getattr(config, 'CONTINUE_ON_ERROR', True)
+            if not continue_on_error:
                 raise
             return None
     
     def get_image_files(self, folder_path: str) -> List[str]:
         """Get all supported image files from the folder."""
+        folder = Path(folder_path)
+        if not folder.exists():
+            self.logger.error(f"Folder not found: {folder_path}")
+            return []
+            
         image_files = []
-        for ext in config.SUPPORTED_EXTENSIONS:
-            pattern = f"*{ext}"
-            image_files.extend(Path(folder_path).glob(pattern))
-            # Also check uppercase extensions
-            pattern = f"*{ext.upper()}"
-            image_files.extend(Path(folder_path).glob(pattern))
+        supported_extensions = getattr(config, 'SUPPORTED_EXTENSIONS', ['.jpg', '.jpeg', '.png', '.bmp', '.tiff'])
         
-        # Sort files naturally
-        image_files = sorted([str(f) for f in image_files])
+        for ext in supported_extensions:
+            # Check both lowercase and uppercase extensions
+            for case_ext in [ext.lower(), ext.upper()]:
+                pattern = f"*{case_ext}"
+                image_files.extend(folder.glob(pattern))
+        
+        # Sort files naturally and convert to strings
+        image_files = sorted([str(f) for f in set(image_files)])
         self.logger.info(f"Found {len(image_files)} image files")
         return image_files
     
     def format_output(self, filename: str, text: str, page_number: int) -> str:
         """Format the extracted text for output."""
-        output = ""
+        output_parts = []
         
-        if config.SEPARATE_PAGES and page_number > 1:
-            output += "\n" + "="*80 + "\n"
+        # Page separator
+        if getattr(config, 'SEPARATE_PAGES', True) and page_number > 1:
+            output_parts.append("\n" + "="*80)
         
-        if config.INCLUDE_FILENAME:
-            output += f"File: {filename}\n"
+        # File information
+        if getattr(config, 'INCLUDE_FILENAME', True):
+            output_parts.append(f"File: {filename}")
         
-        if config.ADD_PAGE_NUMBERS:
-            output += f"Page: {page_number}\n"
+        if getattr(config, 'ADD_PAGE_NUMBERS', True):
+            output_parts.append(f"Page: {page_number}")
         
-        if config.INCLUDE_TIMESTAMP:
-            output += f"Processed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        if getattr(config, 'INCLUDE_TIMESTAMP', False):
+            output_parts.append(f"Processed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
-        output += f"{'-'*40}\n"
-        output += text + "\n"
+        # Content separator and text
+        output_parts.append("-"*40)
+        output_parts.append(text)
         
-        return output
+        return "\n".join(output_parts) + "\n"
     
-    def process_manga_folder(self, folder_path: str = None) -> bool:
+    def _create_output_header(self, total_images: int) -> str:
+        """Create the header for the output file."""
+        return (
+            f"Manga OCR Results - Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Model: {config.GEMINI_MODEL}\n"
+            f"Total Images Processed: {total_images}\n"
+            f"Successful Extractions: {self.processed_count}\n"
+            f"Errors: {self.error_count}\n"
+            f"{'='*80}\n\n"
+        )
+    
+    def _save_results(self, all_text: List[str], total_images: int) -> bool:
+        """Save the OCR results to the output file."""
+        try:
+            with open(config.OUTPUT_FILE, 'w', encoding='utf-8') as f:
+                f.write(self._create_output_header(total_images))
+                f.write("\n".join(all_text))
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving results: {e}")
+            return False
+
+    def process_manga_folder(self, folder_path: Optional[str] = None) -> bool:
         """Process all manga images in the folder."""
         if folder_path is None:
             folder_path = config.IMAGE_FOLDER
@@ -174,9 +285,12 @@ class GeminiMangaOCR:
             self.logger.warning(f"No supported image files found in {folder_path}")
             return False
         
+        return self._process_images(image_files)
+    
+    def _process_images(self, image_files: List[str]) -> bool:
+        """Process the list of image files."""
         self.logger.info(f"Starting OCR processing of {len(image_files)} images...")
         
-        # Process images
         all_text = []
         start_time = time.time()
         
@@ -193,41 +307,39 @@ class GeminiMangaOCR:
                 )
                 all_text.append(formatted_text)
         
-        # Save results
-        if all_text:
-            try:
-                with open(config.OUTPUT_FILE, 'w', encoding='utf-8') as f:
-                    f.write(f"Manga OCR Results - Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                    f.write(f"Model: {config.GEMINI_MODEL}\n")
-                    f.write(f"Total Images Processed: {len(image_files)}\n")
-                    f.write(f"Successful Extractions: {self.processed_count}\n")
-                    f.write(f"Errors: {self.error_count}\n")
-                    f.write("="*80 + "\n\n")
-                    f.write("\n".join(all_text))
-                
-                end_time = time.time()
-                processing_time = end_time - start_time
-                
-                self.logger.info(f"OCR processing completed!")
-                self.logger.info(f"Results saved to: {config.OUTPUT_FILE}")
-                self.logger.info(f"Processing time: {processing_time:.2f} seconds")
-                self.logger.info(f"Successfully processed: {self.processed_count}/{len(image_files)} images")
-                
-                if self.error_count > 0:
-                    self.logger.warning(f"Errors encountered: {self.error_count}")
-                
-                return True
-                
-            except Exception as e:
-                self.logger.error(f"Error saving results: {e}")
-                return False
-        else:
+        return self._finalize_processing(all_text, len(image_files), start_time)
+    
+    def _finalize_processing(self, all_text: List[str], total_images: int, start_time: float) -> bool:
+        """Finalize the processing and save results."""
+        if not all_text:
             self.logger.warning("No text was extracted from any images")
             return False
+        
+        # Save results
+        if not self._save_results(all_text, total_images):
+            return False
+        
+        # Log completion statistics
+        end_time = time.time()
+        processing_time = end_time - start_time
+        
+        self.logger.info(f"OCR processing completed!")
+        self.logger.info(f"Results saved to: {config.OUTPUT_FILE}")
+        self.logger.info(f"Processing time: {processing_time:.2f} seconds")
+        self.logger.info(f"Successfully processed: {self.processed_count}/{total_images} images")
+        
+        if self.error_count > 0:
+            self.logger.warning(f"Errors encountered: {self.error_count}")
+        
+        return True
 
 def main():
     """Main function to run the OCR process."""
     try:
+        # Validate configuration before starting
+        if hasattr(config, 'validate_config'):
+            config.validate_config()
+        
         ocr = GeminiMangaOCR()
         success = ocr.process_manga_folder()
         
@@ -240,10 +352,16 @@ def main():
         else:
             print("❌ OCR processing failed or no text was extracted")
             
+    except ValueError as e:
+        print(f"❌ Configuration error: {e}")
+        print("\n📋 Setup checklist:")
+        print("1. Set your GOOGLE_API_KEY in config.py or as environment variable")
+        print("2. Create an 'images' folder with your manga files")
+        print("3. Install required packages: pip install google-generativeai Pillow")
+        
     except Exception as e:
         print(f"❌ Fatal error: {e}")
         logging.error(f"Fatal error in main: {e}")
 
 if __name__ == "__main__":
     main()
-```

@@ -1,0 +1,21 @@
+[tool.pylsp-mypy]
+enabled = true
+live_mode = true
+
+[tool.pyright]
+# Suppress specific warnings for google.generativeai
+reportPrivateImportUsage = false
+reportMissingImports = false
+
+[tool.pylint]
+disable = [
+    "import-error",
+    "no-member"
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
