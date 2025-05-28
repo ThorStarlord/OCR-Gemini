@@ -6,13 +6,47 @@ config.py
 # Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
-# Logs and temporary files
-*.log
-error.log
+# Output folders (keep structure but ignore contents)
+output/*.txt
+output/*.json
+output/logs/*
+output/debug/*
+output/individual_pages/*
+output/backups/*
+
+# Keep folder structure
+!output/
+!output/logs/
+!output/debug/
+!output/individual_pages/
+!output/backups/
+!output/.gitkeep
+!output/**/README.md
+
+# Input files (optional - you might want to track sample files)
+input/*
+!input/README.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+.vs/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
 processed_*
 response_*
-manga_text_*.txt
 
-# IDE files
-.vscode/
+# Log files
+*.log
