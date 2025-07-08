@@ -138,9 +138,26 @@ class GeminiMangaOCR:
         
         # Add language-specific instructions
         manga_language = getattr(config, 'MANGA_LANGUAGE', '')
-        if manga_language == 'Japanese' and 'japanese' in prompts:
-            if default_prompt == 'basic':  # Override basic with Japanese if language is set
+        
+        # Handle Chinese language settings
+        if manga_language == 'Chinese':
+            if getattr(config, 'ENABLE_TRANSLATION', False):
+                # Use translation prompt if translation is enabled
+                if 'chinese_translate' in prompts:
+                    prompt = prompts['chinese_translate']
+                elif 'chinese' in prompts:
+                    prompt = prompts['chinese']
+            elif default_prompt == 'basic' and 'chinese' in prompts:
+                # Override basic with Chinese if language is set
+                prompt = prompts['chinese']
+        elif manga_language == 'Japanese' and 'japanese' in prompts:
+            if default_prompt == 'basic':
                 prompt = prompts['japanese']
+        
+        # Add translation instructions if enabled
+        if getattr(config, 'ENABLE_TRANSLATION', False) and not default_prompt.endswith('_translate'):
+            translation_instructions = self._get_translation_instructions()
+            prompt += translation_instructions
         
         # Add reading order instructions based on configuration
         reading_order = getattr(config, 'READING_ORDER', '')
@@ -162,7 +179,62 @@ Please number and extract text in this precise order, indicating the spatial pos
             prompt += spatial_instructions
         
         return prompt
+    
+    def _get_translation_instructions(self) -> str:
+        """Get translation instructions based on configuration."""
+        if not getattr(config, 'ENABLE_TRANSLATION', False):
+            return ""
         
+        source_lang = getattr(config, 'SOURCE_LANGUAGE', 'Chinese') or 'Chinese'
+        target_lang = getattr(config, 'TARGET_LANGUAGE', 'English') or 'English'
+        translation_mode = getattr(config, 'TRANSLATION_MODE', 'inline') or 'inline'
+        translation_style = getattr(config, 'TRANSLATION_STYLE', 'natural') or 'natural'
+        preserve_original = getattr(config, 'PRESERVE_ORIGINAL', True)
+        
+        instructions = f"""
+
+TRANSLATION INSTRUCTIONS:
+- Translate all extracted {source_lang} text to {target_lang}
+- Translation style: {translation_style}
+- Preserve original text: {'Yes' if preserve_original else 'No'}
+- Output mode: {translation_mode}
+
+Translation Guidelines:
+- For 'natural' style: Provide fluent, contextual translations
+- For 'literal' style: Stay close to original meaning and structure
+- For 'localized' style: Adapt cultural references and idioms
+- Maintain the emotional tone and character personality
+- Keep sound effects descriptive but culturally appropriate"""
+
+        if translation_mode == 'inline':
+            instructions += """
+
+OUTPUT FORMAT (Inline):
+Panel X: [Original text] → [Translation]"""
+        elif translation_mode == 'separate':
+            instructions += """
+
+OUTPUT FORMAT (Separate):
+=== ORIGINAL TEXT ===
+[All original text in reading order]
+
+=== ENGLISH TRANSLATION ===
+[All translations in same order]"""
+        elif translation_mode == 'both':
+            instructions += """
+
+OUTPUT FORMAT (Both):
+=== DETAILED EXTRACTION ===
+Panel X: [Original] → [Translation]
+
+=== ORIGINAL TEXT ONLY ===
+[All original text]
+
+=== TRANSLATIONS ONLY ===
+[All translations]"""
+        
+        return instructions
+    
     def _save_api_response(self, response_text: str, image_path: str) -> None:
         """Save API response for debugging purposes."""
         if not getattr(config, 'SAVE_API_RESPONSES', False):
@@ -215,6 +287,45 @@ Please number and extract text in this precise order, indicating the spatial pos
             continue_on_error = getattr(config, 'CONTINUE_ON_ERROR', True)
             if not continue_on_error:
                 raise
+            return None
+    
+    def translate_text(self, text: str, source_lang: Optional[str] = None, target_lang: Optional[str] = None) -> Optional[str]:
+        """Translate extracted text using Gemini."""
+        if not getattr(config, 'ENABLE_TRANSLATION', False):
+            return None
+        
+        source_lang = source_lang or getattr(config, 'SOURCE_LANGUAGE', 'Chinese') or 'Chinese'
+        target_lang = target_lang or getattr(config, 'TARGET_LANGUAGE', 'English') or 'English'
+        translation_style = getattr(config, 'TRANSLATION_STYLE', 'natural') or 'natural'
+        
+        translation_prompt = f"""Translate the following {source_lang} text to {target_lang}.
+
+Translation style: {translation_style}
+- For 'natural': Provide fluent, contextual translations
+- For 'literal': Stay close to original meaning  
+- For 'localized': Adapt cultural references
+
+Text to translate:
+{text}
+
+Provide only the translation, maintaining the original formatting and structure."""
+        
+        try:
+            response = self.model.generate_content(translation_prompt)
+            
+            # Add delay to respect rate limits
+            delay = getattr(config, 'REQUEST_DELAY', 1.0)
+            time.sleep(delay)
+            
+            if response.text:
+                self.logger.info("Successfully translated text")
+                return response.text.strip()
+            else:
+                self.logger.warning("No translation generated")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error translating text: {e}")
             return None
     
     def get_image_files(self, folder_path: str) -> List[str]:

@@ -317,6 +317,94 @@ class OCRExamples:
         print("\n✅ Error handling tests completed")
         return True
     
+    def example_chinese_translation(self) -> bool:
+        """Example 7: Test Chinese to English translation."""
+        self._print_section_header("Example 7: Chinese Translation Test")
+        
+        try:
+            ocr = self._get_ocr_instance()
+            image_files = ocr.get_image_files(config.IMAGE_FOLDER)
+            
+            if not image_files:
+                print("⚠️  No image files found")
+                return False
+            
+            # Store original settings
+            original_prompt = getattr(config, 'DEFAULT_PROMPT', 'basic')
+            original_language = getattr(config, 'MANGA_LANGUAGE', 'English')
+            original_translation = getattr(config, 'ENABLE_TRANSLATION', False)
+            original_source = getattr(config, 'SOURCE_LANGUAGE', 'Chinese')
+            original_target = getattr(config, 'TARGET_LANGUAGE', 'English')
+            original_reading_order = getattr(config, 'READING_ORDER', 'right-to-left')
+            
+            try:
+                # Set Chinese translation settings
+                config.DEFAULT_PROMPT = 'chinese_translate'
+                config.MANGA_LANGUAGE = 'Chinese'
+                config.ENABLE_TRANSLATION = True
+                config.SOURCE_LANGUAGE = 'Chinese'
+                config.TARGET_LANGUAGE = 'English'
+                config.READING_ORDER = 'right-to-left'
+                
+                print(f"🔄 Testing Chinese to English translation...")
+                print(f"   🇨🇳 Source: {config.SOURCE_LANGUAGE}")
+                print(f"   🇺🇸 Target: {config.TARGET_LANGUAGE}")
+                print(f"   📖 Reading order: {config.READING_ORDER}")
+                print(f"   📝 Prompt: {config.DEFAULT_PROMPT}")
+                
+                # Process first image with translation settings
+                test_image = image_files[0]
+                filename = os.path.basename(test_image)
+                
+                test_ocr = GeminiMangaOCR()
+                extracted_text = test_ocr.extract_text_from_image(test_image)
+                
+                if extracted_text:
+                    # Save Chinese translation result
+                    output_dir = getattr(config, 'OUTPUT_DIR', 'output')
+                    translation_output = os.path.join(str(output_dir), f"chinese_translation_{filename}.txt")
+                    
+                    with open(translation_output, 'w', encoding='utf-8') as f:
+                        f.write(f"Chinese to English Translation Test Results\n")
+                        f.write(f"{'='*60}\n\n")
+                        f.write(f"Image: {filename}\n")
+                        f.write(f"Source Language: {config.SOURCE_LANGUAGE}\n")
+                        f.write(f"Target Language: {config.TARGET_LANGUAGE}\n")
+                        f.write(f"Reading Order: {config.READING_ORDER}\n")
+                        f.write(f"Translation Mode: {getattr(config, 'TRANSLATION_MODE', 'inline')}\n")
+                        f.write(f"Prompt Type: {config.DEFAULT_PROMPT}\n\n")
+                        f.write(f"Extracted Text with Translation:\n")
+                        f.write(f"{'-'*50}\n\n")
+                        f.write(extracted_text)
+                    
+                    print(f"✅ Chinese translation test completed!")
+                    print(f"📄 Results saved to: {translation_output}")
+                    
+                    # Show preview
+                    print(f"\n🔤 Translation preview:")
+                    print("-" * 60)
+                    preview = extracted_text[:400] + "..." if len(extracted_text) > 400 else extracted_text
+                    print(preview)
+                    print("-" * 60)
+                    
+                    return True
+                else:
+                    print("❌ No text extracted")
+                    return False
+                    
+            finally:
+                # Restore original settings
+                config.DEFAULT_PROMPT = original_prompt
+                config.MANGA_LANGUAGE = original_language
+                config.ENABLE_TRANSLATION = original_translation
+                config.SOURCE_LANGUAGE = original_source
+                config.TARGET_LANGUAGE = original_target
+                config.READING_ORDER = original_reading_order
+                
+        except Exception as e:
+            print(f"❌ Error in Chinese translation test: {e}")
+            return False
+
     def example_manga_reading_order(self) -> bool:
         """Example 6: Test manga reading order specifically."""
         self._print_section_header("Example 6: Manga Reading Order Test")
@@ -330,9 +418,9 @@ class OCRExamples:
                 return False
             
             # Test with manga-specific settings
-            original_prompt = config.DEFAULT_PROMPT
-            original_reading_order = config.READING_ORDER
-            original_language = config.MANGA_LANGUAGE
+            original_prompt = getattr(config, 'DEFAULT_PROMPT', 'basic')
+            original_reading_order = getattr(config, 'READING_ORDER', 'right-to-left')
+            original_language = getattr(config, 'MANGA_LANGUAGE', 'Japanese')
             
             try:
                 # Set optimal manga settings
@@ -354,7 +442,9 @@ class OCRExamples:
                 
                 if extracted_text:
                     # Save manga reading order result
-                    manga_output = str(config.OUTPUT_DIR / f"manga_reading_order_{filename}.txt")
+                    output_dir = getattr(config, 'OUTPUT_DIR', 'output')
+                    manga_output = os.path.join(str(output_dir), f"manga_reading_order_{filename}.txt")
+                    
                     with open(manga_output, 'w', encoding='utf-8') as f:
                         f.write(f"Manga Reading Order Test Results\n")
                         f.write(f"{'='*50}\n\n")
@@ -404,7 +494,8 @@ def run_all_examples() -> None:
             ('Basic Usage', examples.example_basic_usage),
             ('Single Image', examples.example_single_image),
             ('Custom Prompts', examples.example_custom_prompt),
-            ('Manga Reading Order', examples.example_manga_reading_order),  # Add new example
+            ('Manga Reading Order', examples.example_manga_reading_order),
+            ('Chinese Translation', examples.example_chinese_translation),
             ('Batch Processing', examples.example_batch_processing),
             ('Error Handling', examples.example_error_handling)
         ]

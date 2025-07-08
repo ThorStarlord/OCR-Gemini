@@ -45,6 +45,33 @@ def create_example_structure():
         print(f"⚠️  No image files found in input folder")
         print("   📷 Add some manga images to input/ folder to get started")
 
+def test_gemini_api():
+    """Test if the Gemini API is working."""
+    try:
+        import config
+        api_key = getattr(config, 'GOOGLE_API_KEY', '')
+        if not api_key or api_key == "YOUR_GEMINI_API_KEY_HERE":
+            print("⚠️  Cannot test API - API key not configured")
+            return False
+        
+        import google.generativeai as genai
+        
+        # Test API configuration
+        genai.configure(api_key=api_key)
+        
+        # Try to create a model instance
+        model_name = getattr(config, 'GEMINI_MODEL', 'gemini-1.5-flash')
+        model = genai.GenerativeModel(model_name)
+        print("✅ Gemini API connection successful")
+        print(f"   📡 Using model: {model_name}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Gemini API test failed: {e}")
+        print("   🔑 Check your API key and internet connection")
+        return False
+
 def check_config():
     """Check if config.py exists and is properly configured."""
     try:
@@ -52,14 +79,12 @@ def check_config():
         print("✅ config.py found and imported successfully")
         
         # Check API key
-        if hasattr(config, 'GOOGLE_API_KEY'):
-            if config.GOOGLE_API_KEY and config.GOOGLE_API_KEY != "YOUR_GEMINI_API_KEY_HERE":
-                print("✅ API key appears to be configured")
-            else:
-                print("⚠️  API key not configured in config.py")
-                print("   🔑 Set GOOGLE_API_KEY in config.py or as environment variable")
+        api_key = getattr(config, 'GOOGLE_API_KEY', '')
+        if api_key and api_key != "YOUR_GEMINI_API_KEY_HERE":
+            print("✅ API key appears to be configured")
         else:
-            print("❌ GOOGLE_API_KEY not found in config.py")
+            print("⚠️  API key not configured in config.py")
+            print("   🔑 Set GOOGLE_API_KEY in config.py or as environment variable")
         
         # Check required settings
         required_settings = ['GEMINI_MODEL', 'IMAGE_FOLDER', 'OUTPUT_FILE', 'SUPPORTED_EXTENSIONS']
@@ -109,31 +134,6 @@ def check_dependencies():
         return False
     
     return True
-
-def test_gemini_api():
-    """Test if the Gemini API is working."""
-    try:
-        import config
-        if not hasattr(config, 'GOOGLE_API_KEY') or config.GOOGLE_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
-            print("⚠️  Cannot test API - API key not configured")
-            return False
-        
-        import google.generativeai as genai
-        
-        # Test API configuration
-        genai.configure(api_key=config.GOOGLE_API_KEY)
-        
-        # Try to create a model instance
-        model = genai.GenerativeModel(getattr(config, 'GEMINI_MODEL', 'gemini-1.5-flash'))
-        print("✅ Gemini API connection successful")
-        print(f"   📡 Using model: {getattr(config, 'GEMINI_MODEL', 'gemini-1.5-flash')}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Gemini API test failed: {e}")
-        print("   🔑 Check your API key and internet connection")
-        return False
 
 def check_project_structure():
     """Check if the project structure is properly set up."""

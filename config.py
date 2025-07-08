@@ -135,10 +135,61 @@ Panel Position: [Description of location]
 Speaker/Type: [Character name or "Narration" or "Sound Effect"]
 Text: [Exact transcription]
 
-Be very precise about the reading order and spatial relationships.'''
-    # Use this when: You need the most accurate manga reading order (RECOMMENDED)
-    # Best for: Professional manga processing, accurate text extraction
-    # Features: Precise spatial instructions, speaker identification, exact positioning
+Be very precise about the reading order and spatial relationships.''',
+
+    # CHINESE PROMPTS - For Chinese manga/comics
+    'chinese': '''This is a Chinese manga/comic page. Extract all Chinese text accurately, including dialogue, sound effects, and narration.
+
+IMPORTANT READING ORDER: Follow the traditional Chinese reading pattern:
+1. Start from the TOP-RIGHT panel and move LEFT across the page
+2. Within each panel, read speech bubbles from RIGHT to LEFT, TOP to BOTTOM  
+3. For vertical text, read from TOP to BOTTOM
+4. Move down to the next row of panels and repeat
+
+Please extract text in this exact reading order and clearly label each panel/bubble. Format like this:
+Panel 1 (top-right): [dialogue/text]
+Panel 2 (top-left): [dialogue/text]
+Panel 3 (middle-right): [dialogue/text]
+And so on...
+
+Include ALL text: dialogue, thoughts, sound effects, and narration.''',
+    
+    # CHINESE STRUCTURED PROMPT - Organized Chinese extraction
+    'chinese_structured': '''Extract text from this Chinese manga/comic page in a structured format following RIGHT-TO-LEFT, TOP-TO-BOTTOM reading order:
+
+1. PANELS: Number panels from top-right to bottom-left
+2. DIALOGUE: Extract speech bubbles in proper reading order (right-to-left within panels)
+3. SOUND EFFECTS: List all onomatopoeia and sound effects with their positions
+4. NARRATION: Any text boxes or narrative elements
+
+Format example:
+=== PANEL 1 (Top-Right) ===
+Dialogue: "中文对话"
+Sound Effect: *效果音*
+
+=== PANEL 2 (Top-Left) ===
+Dialogue: "下一个对话"
+
+Continue in proper reading order...''',
+
+    # CHINESE TRANSLATION PROMPT - Extract AND translate
+    'chinese_translate': '''This is a Chinese manga/comic page. Please:
+
+1. FIRST: Extract all Chinese text following the traditional reading order (right-to-left, top-to-bottom)
+2. THEN: Provide English translations for each extracted text
+
+READING ORDER:
+- Start from TOP-RIGHT panel and move LEFT
+- Within panels: RIGHT to LEFT, TOP to BOTTOM
+- For vertical text: TOP to BOTTOM
+
+OUTPUT FORMAT:
+Panel Position: [Location description]
+Original Chinese: [Exact Chinese text]
+English Translation: [Natural English translation]
+Text Type: [Dialogue/Narration/Sound Effect]
+
+Be precise about reading order and provide natural, contextual translations.'''
 }
 
 # CURRENT DEFAULT - Choose based on your manga type:
@@ -161,6 +212,12 @@ READING_ORDER = 'right-to-left'
 # MANGA_LANGUAGE = 'English'
 # READING_ORDER = 'right-to-left'  # Keep this since layout is still right-to-left
 
+# For Chinese Manga:
+# MANGA_LANGUAGE = 'Chinese'
+# READING_ORDER = 'right-to-left'
+# DEFAULT_PROMPT = 'chinese_translate'  # For translation
+# DEFAULT_PROMPT = 'chinese'  # For extraction only
+
 # Output Formatting
 SEPARATE_PAGES = True  # Add a separator between extracted text from different pages
 INCLUDE_FILENAME = True  # Include the filename in the output for each page
@@ -182,6 +239,20 @@ JSON_OUTPUT_FILE = str(OUTPUT_DIR / 'extracted_text.json')
 # Quality control
 MIN_TEXT_LENGTH = 5  # Minimum characters to consider valid extraction
 CONFIDENCE_THRESHOLD = 0.7  # For future confidence scoring
+
+# Translation Settings
+ENABLE_TRANSLATION = False  # Set to True to enable translation features
+TARGET_LANGUAGE = 'English'  # Target language for translation
+SOURCE_LANGUAGE = 'Chinese'  # Source language (auto-detected if not specified)
+
+# Translation Options
+TRANSLATION_MODE = 'inline'  # 'inline', 'separate', 'both'
+# 'inline' - Translation immediately after original text
+# 'separate' - Translation in separate section
+# 'both' - Both inline and separate sections
+
+PRESERVE_ORIGINAL = True  # Keep original text along with translation
+TRANSLATION_STYLE = 'natural'  # 'literal', 'natural', 'localized'
 
 # --- VALIDATION ---
 def validate_config():
